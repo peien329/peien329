@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>足跡地圖</title>
+  <meta name="description" content="記錄你去過的國家、留下的足跡、照片與故事。">
+  <meta name="theme-color" content="#f6f3ee" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1621" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="足跡地圖">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="vendor/d3.min.js" defer></script>
+  <script src="vendor/topojson-client.min.js" defer></script>
+  <script src="js/app.js" type="module"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="" width="28" height="28">
+      <span>足跡地圖</span>
+    </div>
+    <div class="topbar-right">
+      <button class="stat-pill" id="stat-pill" type="button" data-goto="stats">0 國 · 0%</button>
+      <button class="icon-btn" id="settings-btn" type="button" aria-label="設定">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Zm7.43-2.53a7.8 7.8 0 0 0 0-1.94l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.3 7.3 0 0 0-1.68-.97l-.38-2.65A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.5.42l-.38 2.65c-.6.25-1.17.57-1.68.97l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65a7.8 7.8 0 0 0 0 1.94l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.3.61.22l2.49-1c.51.4 1.08.72 1.68.97l.38 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.38-2.65c.6-.25 1.17-.57 1.68-.97l2.49 1c.22.08.48 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.65Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 地圖 -->
+    <section class="view active" id="view-map" aria-label="地圖">
+      <svg id="map" role="img" aria-label="世界地圖"></svg>
+      <div class="map-loading" id="map-loading">地圖載入中…</div>
+      <div class="legend">
+        <span><i class="dot visited"></i>去過</span>
+        <span><i class="dot wish"></i>想去</span>
+        <span><i class="dot pin"></i>足跡</span>
+      </div>
+      <button class="icon-btn map-reset" id="map-reset" type="button" aria-label="顯示全世界">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm-9 9h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3Z"/></svg>
+      </button>
+      <button class="fab" id="fab" type="button">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+        <span>新增足跡</span>
+      </button>
+
+      <div class="pick-banner" id="pick-banner" hidden>
+        <span>點一下地圖，選擇足跡的位置</span>
+        <button type="button" class="btn small" id="pick-cancel">取消</button>
+      </div>
+
+      <!-- 國家面板 -->
+      <div class="sheet" id="sheet" aria-hidden="true">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+          <div class="sheet-title">
+            <span class="flag" id="sheet-flag"></span>
+            <div>
+              <h2 id="sheet-name"></h2>
+              <p class="muted" id="sheet-sub"></p>
+            </div>
+          </div>
+          <button class="icon-btn" id="sheet-close" type="button" aria-label="關閉">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <div class="segmented" id="sheet-status" role="radiogroup" aria-label="狀態">
+          <button type="button" data-status="visited" role="radio">✓ 去過</button>
+          <button type="button" data-status="wish" role="radio">☆ 想去</button>
+          <button type="button" data-status="" role="radio">未標記</button>
+        </div>
+        <div class="sheet-body">
+          <div class="section-head">
+            <h3>足跡</h3>
+            <button class="btn small primary" id="sheet-add" type="button">＋ 新增</button>
+          </div>
+          <div class="fp-list" id="sheet-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 國家清單 -->
+    <section class="view" id="view-countries" aria-label="國家">
+      <div class="list-toolbar">
+        <input type="search" id="country-search" placeholder="搜尋國家或地區" autocomplete="off">
+        <div class="chips" id="country-filter" role="radiogroup">
+          <button type="button" class="chip active" data-filter="all">全部</button>
+          <button type="button" class="chip" data-filter="visited">去過</button>
+          <button type="button" class="chip" data-filter="wish">想去</button>
+        </div>
+      </div>
+      <ul class="country-list" id="country-list"></ul>
+    </section>
+
+    <!-- 統計 -->
+    <section class="view" id="view-stats" aria-label="統計">
+      <div class="stats" id="stats"></div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="主選單">
+    <button type="button" class="tab active" data-view="map">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="m9 4-6 2.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5L9 4Zm0 0v13.5m6-11v13.5"/></svg>
+      <span>地圖</span>
+    </button>
+    <button type="button" class="tab" data-view="countries">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>
+      <span>國家</span>
+    </button>
+    <button type="button" class="tab" data-view="stats">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M5 20V11m7 9V5m7 15v-6"/></svg>
+      <span>統計</span>
+    </button>
+  </nav>
+
+  <!-- 新增 / 編輯足跡 -->
+  <dialog id="editor" class="modal">
+    <form method="dialog" id="editor-form" novalidate>
+      <header class="modal-head">
+        <button type="button" class="btn ghost" data-close>取消</button>
+        <h2 id="editor-title">新增足跡</h2>
+        <button type="submit" class="btn primary" id="editor-save">儲存</button>
+      </header>
+      <div class="modal-body">
+        <label class="field">
+          <span>照片</span>
+          <div class="photo-grid" id="editor-photos">
+            <label class="photo-add">
+              <input type="file" accept="image/*" multiple id="editor-file">
+              <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+              <span>加入照片</span>
+            </label>
+          </div>
+          <small class="muted">照片若有定位資訊，會自動帶入國家、位置和日期。</small>
+        </label>
+        <label class="field">
+          <span>國家 / 地區 <b class="req">*</b></span>
+          <select id="editor-country" required></select>
+        </label>
+        <label class="field">
+          <span>地點或標題 <b class="req">*</b></span>
+          <input type="text" id="editor-place" placeholder="例如：京都 伏見稻荷大社" maxlength="80" required>
+        </label>
+        <label class="field">
+          <span>日期</span>
+          <input type="date" id="editor-date">
+        </label>
+        <div class="field">
+          <span>位置</span>
+          <div class="loc-row">
+            <span id="editor-loc" class="muted">尚未設定</span>
+            <button type="button" class="btn small" id="editor-pick">在地圖上選擇</button>
+            <button type="button" class="btn small ghost" id="editor-loc-clear" hidden>清除</button>
+          </div>
+        </div>
+        <label class="field">
+          <span>故事</span>
+          <textarea id="editor-story" rows="7" placeholder="那天發生了什麼？吃了什麼、遇見了誰、有什麼感受…"></textarea>
+        </label>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 查看足跡 -->
+  <dialog id="viewer" class="modal">
+    <header class="modal-head">
+      <button type="button" class="btn ghost" data-close>‹ 返回</button>
+      <h2 id="viewer-country"></h2>
+      <button type="button" class="btn ghost" id="viewer-edit">編輯</button>
+    </header>
+    <div class="modal-body flush">
+      <div class="gallery" id="viewer-gallery"></div>
+      <div class="viewer-text">
+        <h1 id="viewer-title"></h1>
+        <p class="muted" id="viewer-meta"></p>
+        <div class="story" id="viewer-story"></div>
+        <div class="viewer-actions">
+          <button type="button" class="btn" id="viewer-locate">在地圖上查看</button>
+          <button type="button" class="btn danger" id="viewer-delete">刪除這個足跡</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 照片全螢幕 -->
+  <dialog id="lightbox" class="lightbox">
+    <img id="lightbox-img" alt="">
+  </dialog>
+
+  <!-- 設定 -->
+  <dialog id="settings" class="modal small">
+    <header class="modal-head">
+      <span></span>
+      <h2>設定與備份</h2>
+      <button type="button" class="btn ghost" data-close>完成</button>
+    </header>
+    <div class="modal-body">
+      <p class="muted">所有資料（包含照片）都只存在這台裝置的瀏覽器裡，不會上傳到任何地方。建議定期匯出備份，換手機或清除瀏覽器資料之前也要先備份。</p>
+      <div class="settings-actions">
+        <button type="button" class="btn" id="export-btn">⬇ 匯出備份檔</button>
+        <label class="btn">
+          ⬆ 從備份檔還原
+          <input type="file" accept="application/json,.json" id="import-file" hidden>
+        </label>
+        <button type="button" class="btn danger" id="clear-btn">清除所有資料</button>
+      </div>
+      <p class="muted small" id="storage-info"></p>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
